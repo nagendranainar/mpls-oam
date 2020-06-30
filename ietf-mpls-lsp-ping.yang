@@ -1,0 +1,963 @@
+module ietf-mpls-lsp-ping {
+	yang-version 1.1;
+	namespace "urn:ietf:params:xml:ns:yang:ietf-mpls-lsp-ping";
+	prefix "lsp-ping";
+
+	import ietf-inet-types {
+	  prefix inet;
+	  reference
+	  	"RFC 6991: Common YANG Types.";
+	}
+
+	import ietf-yang-types {
+  		prefix yang;
+  		reference 
+  			"RFC 6991: Common YANG Types.";
+	}
+
+	import ietf-interfaces {
+		prefix if;
+		reference
+			"RFC 8343: YANG Interface Management";
+	}
+
+	import ietf-lime-time-types {
+    	prefix lime;
+	}
+	
+	import ietf-routing {
+		prefix rt;
+		reference
+			"RFC 8022: YANG Routing Management";
+	}
+	import ietf-routing-types {
+	  prefix rt-types;
+	  reference
+	  	"RFC 8294: Common YANG Data Types for the Routing Area.";
+	}
+	
+	organization 
+  		"IETF MPLS Working Group";
+
+    contact
+    	"WG Web:   <http://tools.ietf.org/wg/mpls/>
+         WG List:  <mailto:mpls@ietf.org>
+
+        Editor:   Nagendra Kumar Nainar
+                  <mailto:naikumar@cisco.com>
+        Editor:   Carlos Pignataro
+                  <mailto:cpignata@cisco.com>";
+
+    description
+    	"This YANG module defines the configuration of MPLS LSP Ping";
+	
+	
+	feature mpls-oam {
+		description
+			"MPLS OAM feature.";
+	}
+
+   typedef ipv4-loopback-address {
+    	type inet:ipv4-address {
+    		pattern '127.*';
+		}
+    	description
+    		"This type represents an IPv4 Loopback address,
+    		which is in the range of 127.0.0.0 to 127.255.255.255.";
+    	reference
+    		"RFC 1212: Requirements for Internet Hosts -- Communication Layers.";
+	}
+     
+	typedef ipv6-loopback-address {
+    	type inet:ipv6-address {
+    		pattern 'to-be-updated';
+    	}
+    	description
+			"This type represents an IPv6 Loopback address, 
+			which is ::1/128";
+    	reference
+        	"RFC 4291: IP Version 6 Addressing Architecture.  Section 2.7.";
+	}
+     
+	typedef ip-loopback-address {
+    type union {
+    	type ipv4-loopback-address;
+        type ipv6-loopback-address;
+		}
+    description
+        "This type represents a version-neutral IP Loopback
+        address.";
+	}
+       
+	typedef ip-address {
+	type union {
+		type inet:ipv4-address;
+     	type inet:ipv6-address;
+     	}
+    description
+     	"Version neutral IP Address";
+	}
+
+	typedef mpls-traffic-class {
+	type uint8 {
+		range 0..7;
+	}
+	description
+		"MPLS Traffic Class (EXP) value within range 0 to 7.";
+	}
+    
+	typedef mpls-entropy-label {
+    type rt-types:mpls-label-general-use;
+    
+    description
+    	"This type represents the Entropy Label, 
+    	which is outside the reserved range.";
+    reference
+    	"RFC 6790: The Use of Entropy Labels in MPLS Forwarding";
+	}
+    
+	typedef multipath-hashtype {
+    type enumeration {
+    	enum mp-empty {
+    		value "0";
+    		description
+    			"No Multipath";
+    	}
+    		
+    	enum mp-ip-addr {
+    		value "2";
+    		description
+    			"IP Address based Multipath Information Encoding";
+    	}
+    		
+    	enum mp-ip-range {
+    		value "4";
+    		description
+    			"IP Address range based Multipath Information Encoding";
+    	}
+    		
+    	enum mp-ip-bitmask {
+    		value "8";
+    		description
+    			"Bit masked IP Address set for Multipath Information Encoding";
+    	}
+    		
+    	enum mp-label-bitmask {
+    		value "9";
+    		description
+    			"Bit masked Label set for Multipath Information Encoding";
+    	}
+    }
+	description
+		"This type represents the multipath Data type to be used in 
+		the DDMAP for Multipath tracing.";
+	reference
+		"RFC 8029: Section 3.4.1.1.";
+	}
+
+	typedef reply-mode {
+	type enumeration {
+		enum do-not-reply {
+			value "1";
+			description 
+				"Do not Reply";
+			reference
+				"RFC8029: Section 3";
+		}
+		enum reply-udp {
+			value "2";
+			description 
+				"Reply via an IPv4/IPv6 UDP packet";
+			reference
+				"RFC8029: Section 3";
+		}
+		enum reply-udp-ra {
+			value "3";
+			description 
+				"Reply via an IPv4/IPv6 UDP packet with Router Alert";
+			reference
+				"RFC8029: Section 3";
+		}
+		enum reply-app-cc {
+			value "4";
+			description 
+				"Reply via application-level control channel";
+			reference
+				"RFC8029: Section 3";
+		}
+		enum reply-via-path {
+			value "5";
+			description 
+				"Reply via Specified Path";
+			reference
+				"RFC7110: Section 4.1";
+		}
+	}
+	description
+		"This type defines the Reply mode";
+	}
+
+	typedef return-code {
+		type enumeration {
+			enum no-return {
+				value "0";
+				description
+					"No Return Code";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum malformed-echo {
+				value "1";
+				description
+					"Malformed Echo Request Received";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum unknown-tlvs {
+				value "2";
+				description
+					"One or more of the TLVs was not understood";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum egress-reply {
+				value "3";
+				description
+					"Replying router is an egress for the FEC at 
+					stack-depth <RSC>";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum egress-nomap {
+				value "4";
+				description
+					"Replying router has no mapping for the FEC at
+					stack-depth <RSC>";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum dd-mismatch {
+				value "5";
+				description
+					"Downstream Mapping Mismatch";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum unknown-upstream {
+				value "6";
+				description
+					"Upstream Interface Index Unknown";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum reserved {
+				value "7";
+				description
+					"Reserved";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum label-switched {
+				value "8";
+				description
+					"Label switched at stack-depth <RSC>";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum label-switched-no-mpls {
+				value "9";
+				description
+					"Label switched but no MPLS forwarding at stack-depth <RSC>";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum FEC-map-mismatch {
+				value "10";
+				description
+					"Mapping for this FEC is not the given label at stack-depth <RSC>";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum no-label {
+				value "11";
+				description
+					"No label entry at stack-depth <RSC>";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum protocol-mismatch {
+				value "12";
+				description
+					"Protocol not associated with interface at FEC stack-depth <RSC>";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum premature-terminate {
+				value "13";
+				description
+					"Premature termination of ping due to label stack shrinking to a single label";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum ddmap-return-code {
+				value "14";
+				description
+					"See DDMAP TLV for meaning of Return Code and Return Subcode";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+				
+			enum label-switched-fec-change {
+				value "15";
+				description
+					"Label switched with FEC change";
+				reference
+					"RFC 8029: Section 3.1";
+			}
+		}
+		description
+			"This defines the Return codes received in the Echo Response.";
+		reference
+			"RFC 8029: Section 3.1";
+	}
+     
+	typedef ddmap-protocol {
+		type enumeration {
+			enum unknown {
+				value "0";
+				description
+					"Unknown Signaling Protocol";
+			}
+				
+			enum static {
+				value "1";
+				description
+					"Static Signaling Protocol";
+			}
+				
+			enum bgp {
+				value "2";
+				description
+					"BGP Signaling Protocol";
+			}
+				
+			enum ldp {
+				value "3";
+				description
+					"LDP Signaling Protocol";
+			}
+				
+			enum rsvp-te {
+				value "4";
+				description
+					"RSVP-TE Signaling Protocol";
+			}
+		}
+		description
+			"This defines the Signaling Protocol received in the DDMAP.";
+		reference
+			"RFC 8029: Section 3.4.1.2";
+
+	}
+
+	typedef target-fec-type {
+		type enumeration {
+			enum ip-prefix {
+				value "0";
+				description "IPv4/IPv6 prefix";
+			}
+			enum bgp {
+				value "1";
+				description "BGP IPv4/IPv6 prefix";
+			}
+			enum rsvp {
+				value "2";
+				description "Tunnel interface";
+			}
+			enum vpn {
+				value "3";
+				description "VPN IPv4/IPv6 prefix";
+			}
+			enum pw {
+				value "4";
+				description "FEC 128 pseudowire IPv4/IPv6";
+			}
+			enum vpls {
+				value "5";
+				description "FEC 129 pseudowire IPv4/IPv6";
+			}
+		}
+		description "Target FEC type, as defined in RFC 8029";
+	}
+  
+	grouping global-flags {
+		container global-flags {
+			leaf v-flag {
+				type boolean;
+				default false;
+				description
+					"Section 3 of RFC8029 - The V (Validate FEC Stack) flag is used if the 
+					FEC stack should be validated";
+			}
+			leaf t-flag {
+				type boolean;
+				default false;
+				description
+					"Section 3 of RFC8029 - The T flag is set if the response is expected 
+					only if TTL expires";
+			}
+			leaf r-flag {
+				type boolean;
+				default false;
+				description
+					"Section 3 of RFC8029 - The R flag is set if the responder should 
+					return the reverse-path FEC information.";
+			}
+		}
+	}
+  
+	grouping echo-header-parameters {
+		container echo-header-parameters {
+			leaf source-address {
+				type ip-address;
+				description
+					"Specifies the Source IP address in the Echo Request header.";
+			}
+			
+			leaf destination-address {
+				type ip-loopback-address;
+				description
+					"Specifies the Destination IP address in the Echo Request header.";
+			}
+			
+			leaf traffic-class {
+				type mpls-traffic-class;
+				description
+					"Specifies the MPLS traffic class in the Echo Request header.";  			
+			}
+			
+			leaf mpls-entropy-label {
+				type mpls-entropy-label;
+				description
+					"Specifies the Entropy Label to be inserted along with 
+					the Label Stack for the Echo Request header."; 
+			}
+			
+			leaf header-mpls-ttl {
+				type uint8;
+				default 255;
+				description
+					"Specifies the TTL value for the MPLS Label in the Echo Request header."; 
+			}
+			
+			leaf mpls-exp-label {
+				type boolean;
+				description
+					"This optional attribute is used to force the insertion
+					of MPLS Explicit Null in the Label Stack for the Echo Request
+					header."; 
+			}
+		}
+	}
+ 
+	grouping echo-payload-parameters {
+		container echo-payload-parameters {
+			leaf reply-tos-tlv {
+				type boolean;
+				default false;
+				description
+					"This optional attribute is used to instruct the Initiator 
+					to include Reply-TOS TLV.";
+			}//leaf reply-tos-tlv
+			
+			container reply-tos-value {
+				when "../reply-tos-tlv = 'true'" {
+					description
+						"Reply TOS Value is set ONLY when Reply-TOS TLV is required 
+						in the Echo Request.";
+					}
+				leaf reply-tos-value {
+					type uint8 {
+						range "0..63";
+					}
+					description
+						"TOS value for the return packet.";
+				}//leaf ddmap-hash
+			}//container reply-tos-value
+			
+			leaf probe-size {
+				type uint32 {
+					range 1..15000; 
+				}
+			}//leaf probe-size
+			
+			container probe-sweep {
+				when "../probe-size = 'false'" { 
+					description
+						"Probe sweep should be used only if a fixed 
+						probe size is not defined.";
+				}
+				leaf min-probe-sweep {
+					type uint16 {
+						range 72..18000;
+					}
+					description
+						"This define the minimum size of the probe packet.";
+				}
+				leaf max-probe-sweep {
+					type uint16 {
+						range "72..18000";
+					}
+					description
+						"This defines the maximum size of the probe packet.";
+				}
+				description
+					"This instructs the initiator to send a sweep of 
+					probe packets at varying size between the minimum 
+					and maximum value defined.";
+			}
+			
+			leaf target-fec-type {
+				type target-fec-type;
+				mandatory true;
+					description
+						"Target FEC Stack to define the FEC to be 
+						included in the Echo Request.";
+			}
+			
+			leaf reply-mode {
+				type reply-mode;
+					description
+						"XYZ";
+					reference
+						"RFC 8029: Section 3.";
+			}
+			
+			leaf return-ttl-tlv {
+				type boolean;
+				default "false";
+					description
+						"'Time to Live' TLV to be included in the Echo Response.";
+					reference
+						"RFC 7394: Section 3.";
+			}
+			
+			container return-ttl-value {
+				when "../return-ttl-tlv = 'true'" {
+					description
+						"When TTL TLV is included in the Echo Request, the 
+						value mentioned in this field should be included in 
+						the value field of the TLV.";
+					}
+				leaf return-ttl-value {
+					type uint8;
+						description
+							"Return TTL value";
+				}//leaf return-ttl-value
+			}//container return-ttl-value
+			
+			uses global-flags;
+			
+		}//container echo-payload-parameters
+	}//grouping echo-payload-parameters
+ 
+	grouping echo-scheduling-parameters {
+		container echo-scheduling-parameters {
+			container probe-interval {
+				leaf min-probe-interval {
+					type identityref {
+						base lime:time-unit-type;
+					}
+					default "lime:milliseconds";
+					description
+						"This defines the minimum leaf interval.";
+				}
+				leaf min-probe-interval {
+					type identityref {
+						base lime:time-unit-type;
+					}
+					default "lime:milliseconds";
+					description
+						"This defines the maximum leaf interval.";
+				}
+				description
+					"To be Added.";
+			}//container probe-interval
+			
+			leaf probe-count {
+				type uint32;
+				default "5";
+				description
+					"This defines the number of probe counts.";
+			}
+			
+			leaf probe-timeout {
+				type identityref {
+						base lime:time-unit-type;
+					}
+					default "lime:seconds";
+					range "0..3600";
+					description
+						"This defines the probe timeout interval in Seconds."; 
+			}
+			
+			container output-info {
+				list output-intf {
+					key "interface";
+					leaf interface {
+						type if:interface-ref;
+						description
+							"Specifies the Egress interface to 
+						send the probe out.";
+					}
+					description
+						"List of outgoing interfaces";
+				}
+
+				leaf nexthop {
+					type inet:ip-address;
+					description
+						"Specifies the next hop address to 
+						send the probe out.";
+				}
+			}
+		}//container echo-scheduling-parameters
+	}//grouping echo-scheduling-parameters
+	
+	grouping response-header-parameters {
+		container response-header-parameters {
+			leaf resp-source-address {
+				type ip-address;
+				mandatory true;
+				description
+					"Specifies the Source IP address in the Echo Response header.";
+			}
+			
+			leaf resp-destination-address {
+				type ip-address;
+				mandatory true;
+				description
+					"Specifies the Destination IP address in the Echo Response header.";
+			}
+			
+			leaf resp-traffic-class {
+				type uint8 {
+					range "0..63";
+				}
+				mandatory true;
+				description
+					"Specifies the TOS/DSCP in the Echo Response header."; 	
+			}
+			
+		}//container response-header
+	}//grouping response-header
+	
+	grouping response-payload-parameters {
+		container response-payload-parameters {
+			leaf reply-mode {
+				type reply-mode;
+				mandatory true;
+				description
+					"XYZ";
+				reference
+					"RFC 8029: Section 3.";
+			}
+			
+			leaf return-code {
+				type return-code;
+				mandatory true;
+				description
+					"Return Code received in the Echo Reply Payload.";
+			}
+			
+			leaf return-sub-code {
+				type uint8;
+				mandatory true;
+				description
+					"Return Sub Code received in the Echo Reply Payload.";
+			}
+			
+			leaf seq-number {
+				type uint32;
+				mandatory true;
+				description
+					"Sequence Number received in the Echo Reply Payload.";
+			}
+			
+			leaf timestamp-sent {
+				type yang:date-and-time;
+				mandatory true;
+				description
+					"Timestamp Sent is the time of day in 64-bit NTP timestamp format 
+					when MPLS Echo Request is sent.";
+			}
+			
+			leaf timestamp-received {
+				type yang:date-and-time;
+				mandatory true;
+				description
+					"Timestamp Received is the time of day in 64-bit NTP timestamp format 
+					when MPLS Echo Response is sent.";
+			}
+			
+			leaf target-fec-type {
+				type target-fec-type;
+				mandatory true;
+					description
+						"Target FEC Stack to define the FEC to be 
+						included in the Echo Request.";
+			}
+		}//container response-payload-parameters
+		
+	}//grouping response-payload-parameters
+	
+	grouping response-payload-optional-parameters {
+		container response-payload-optional-parameters {
+			container ddmap {
+				leaf ddmap-mtu {
+					type int16;
+					description
+						"This is used to carry the MTU from the DDMAP 
+						received in teh Echo Response Payload."; 
+				}
+			
+				leaf ddmap-downstream-address {
+					type ip-address;
+					description
+						"This is used to carry the Downstream Address from the DDMAP 
+						received in the Echo Response Payload."; 
+				}
+				
+				leaf ddmap-downstream-address {
+					type ip-address;
+					description
+						"This is used to carry the Downstream Address from the DDMAP 
+						received in the Echo Response Payload."; 
+				}
+				
+				leaf ddmap-downstream-intf-index {
+					type int32 {
+						range "1..2147483647";
+					}
+					description
+						"This is used to carry the Downstream Interface Address from the DDMAP 
+						received in the Echo Response Payload."; 
+				}
+				
+				leaf ddmap-return-code {
+					type return-code;
+					description
+						"This is used to carry the Return Code from the DDMAP 
+						received in the Echo Response Payload."; 
+				}
+				
+				leaf ddmap-return-subcode {
+					type int16;
+					description
+						"This is used to carry the Return Sub Code from the DDMAP 
+						received in the Echo Response Payload."; 
+				}
+				
+				list ddmap-label-stack {
+					key "label";
+					description
+						"This is used to carry the Label Stack from the DDMAP 
+						received in the Echo Response Payload.";
+					leaf label {
+						type rt-types:mpls-label;
+					}
+					
+					leaf protocol {
+						type ddmap-protocol;
+					}
+				}
+			}//container ddmap
+
+		}//resp-payload-optional-parameters
+		reference
+			"RFC 8029: Section 3.4 -- DDMAP.";
+	}//grouping resp-payload-optional-parameters
+
+	/* Configuration */
+
+	augment "/rt:routing/ietf-mpls" {
+			if-feature mpls-oam;
+			description
+				"RFC8029: MPLS OAM Feature Augmentation";
+			container mpls-oam {
+				leaf enable {
+					type boolean;
+					description
+						"Enable MPLS OAM";
+				}
+			}
+	}
+
+	/* RPC */
+		
+	rpc continuity-check {
+			description
+				"Triggers LSP Ping from the Initiator and return 
+				the response.";
+			
+			input {
+				uses echo-header-parameters {
+					description
+						"This grouping defines the parameters to be 
+						set in the probe header.";
+				}
+				uses echo-payload-parameters {
+					description
+						"This grouping defines the parameters to be 
+						set in the probe payload.";
+				}
+				uses echo-scheduling-parameters {
+					description
+						"This grouping defines the scheduling parameters to be 
+						used by the initiator.";
+				}
+			}
+			
+			output {
+				list response-list {
+					key "response-index";
+					description
+						"Continuity Check Response List.";
+					leaf response-index {
+						type uint32;
+						mandatory true;
+					}
+					uses response-header-parameters {
+						description
+							"This grouping defines the parameters from the 
+							received echo response header.";
+					}
+					
+					uses response-payload-parameters {
+						description
+							"This grouping defines the parameters from the 
+							received echo response payload.";
+					}
+				}//list response-list
+			}//output
+	}//rpc continuity-check
+		
+	rpc single-path-discovery {
+			input {
+				uses echo-header-parameters {
+					description
+						"This grouping defines the parameters to be 
+						set in the probe header.";
+				}
+				uses echo-payload-parameters {
+					description
+						"This grouping defines the parameters to be 
+						set in the probe payload.";
+				}
+				uses echo-scheduling-parameters {
+					description
+						"This grouping defines the scheduling parameters to be 
+						used by the initiator.";
+				}
+			}
+			output {
+				list response-list {
+					key "response-index";
+					description
+						"Continuity Check Response List.";
+					leaf response-index {
+						type uint32;
+						mandatory true;
+					}
+					uses response-header-parameters {
+						description
+							"This grouping defines the parameters from the 
+							received echo response header.";
+					}
+					
+					uses response-payload-parameters {
+						description
+							"This grouping defines the parameters from the 
+							received echo response payload.";
+					}
+					
+					uses response-header-optional-parameters {
+						description
+							"This grouping defines the optional parameters from the 
+							received Echo Response.";
+					}
+					
+				}//list response-list
+			}//output
+	}//rpc single-path-discovery
+	
+	rpc multi-path-discovery {
+		input {
+			uses echo-header-parameters {
+				description
+					"This grouping defines the parameters to be 
+					set in the probe header.";
+			}
+			uses echo-payload-parameters {
+				description
+					"This grouping defines the parameters to be 
+					set in the probe payload.";
+			}
+			uses echo-scheduling-parameters {
+				description
+					"This grouping defines the scheduling parameters to be 
+					used by the initiator.";
+			}
+			container ddmap-hash {
+  				leaf ddmap-hash {
+  					type multipath-hashtype;
+  						description
+  							"Hashkey type for the DDMAP";
+  				}//leaf ddmap-hash
+			}
+		}
+		output {
+			list response-list {
+				key "response-index";
+				description
+					"Continuity Check Response List.";
+				leaf response-index {
+					type uint32;
+					mandatory true;
+				}
+				uses response-header-parameters {
+					description
+						"This grouping defines the parameters from the 
+						received echo response header.";
+				}
+				
+				uses response-payload-parameters {
+					description
+						"This grouping defines the parameters from the 
+						received echo response payload.";
+				}
+				
+				uses response-payload-optional-parameters {
+					description
+						"This grouping defines the optional parameters from the 
+						received Echo Response.";
+				}
+				
+			}//list response-list
+		}//output
+	}//rpc multi-path-discovery
+}
